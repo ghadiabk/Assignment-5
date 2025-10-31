@@ -18,7 +18,8 @@ def get_driver():
     opts.add_argument("--headless")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
-    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opts)
+    # Use system Chrome and driver path (preinstalled in GitHub Actions)
+    return webdriver.Chrome(options=opts)
 
 
 main_driver = get_driver()
