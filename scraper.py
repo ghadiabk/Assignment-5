@@ -79,13 +79,16 @@ def get_shipping_info(url):
         try:
             shipping = driver.find_element(
                 By.XPATH,
-                "//div[contains(@class,'ux-labels-values__values')]//span[contains(text(),'Shipping') or contains(text(),'shipping') or contains(text(),'International')]"
+                "//div[contains(@class,'ux-labels-values__values')]"
+                "//span[@class='ux-textspans' and not(@class='clipped') and "
+                "not(ancestor::button)]"
             ).text.strip()
-        except:
-            try:
-                shipping = driver.find_element(By.XPATH, "//span[contains(text(),'Shipping')]").text.strip()
-            except:
+
+            if not shipping or shipping.lower() in ["see details", ""]:
                 shipping = "Shipping info unavailable"
+
+        except:
+            shipping = "Shipping info unavailable"
 
         driver.quit()
         return shipping
