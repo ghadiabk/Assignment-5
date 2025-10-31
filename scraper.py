@@ -11,12 +11,12 @@ import os
 url = "https://www.ebay.com/globaldeals/tech"
 output_file = "ebay_tech_deals.csv"
 
+
 def get_driver():
     opts = Options()
     opts.add_argument("--headless")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
-    # Use system Chrome and driver path (preinstalled in GitHub Actions)
     return webdriver.Chrome(options=opts)
 
 
@@ -34,7 +34,6 @@ while True:
     last_height = new_height
 
 products = main_driver.find_elements(By.CSS_SELECTOR, "div.dne-itemtile")
-print(f"Found {len(products)} products on main page.")
 
 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 product_data = []
@@ -67,6 +66,7 @@ for p in products:
 
 main_driver.quit()
 
+
 def get_shipping_info(url):
     if url == "N/A" or not url.startswith("http"):
         return "Shipping info unavailable"
@@ -80,28 +80,37 @@ def get_shipping_info(url):
             shipping = driver.find_element(
                 By.XPATH,
                 "//div[contains(@class,'ux-labels-values__values')]"
-                "//span[@class='ux-textspans' and not(@class='clipped') and "
-                "not(ancestor::button)]"
+                "//span[not(contains(@class,'clipped')) and "
+                "(contains(text(),'Shipping') or contains(text(),'shipping') or contains(text(),'International'))]"
             ).text.strip()
 
-            if not shipping or shipping.lower() in ["see details", ""]:
+        except:
+            try:
+                shipping = driver.find_element(
+                    By.XPATH,
+                    "//span[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'shipping')]"
+                ).text.strip()
+            except:
                 shipping = "Shipping info unavailable"
 
-        except:
+        if not shipping or shipping.lower() in ["see details", "for shipping", ""]:
             shipping = "Shipping info unavailable"
 
         driver.quit()
         return shipping
 
     except Exception:
+        try:
+            driver.quit()
+        except:
+            pass
         return "Shipping info unavailable"
 
-print("Fetching shipping info from individual pages...")
 with ThreadPoolExecutor(max_workers=8) as executor:
     futures = {executor.submit(get_shipping_info, p["item_url"]): p for p in product_data}
     for future in as_completed(futures):
         product = futures[future]
-        product["shipping"] = future.result()
+        product["shipping"] = future.result() or "Shipping info unavailable"
 
 header = ["timestamp", "title", "price", "original_price", "shipping", "item_url"]
 file_exists = os.path.isfile(output_file)
@@ -111,5 +120,3 @@ with open(output_file, "a", newline="", encoding="utf-8") as f:
     if not file_exists:
         writer.writeheader()
     writer.writerows(product_data)
-
-print(f"✅ Scraped {len(product_data)} products (with shipping) and saved to {output_file}")
